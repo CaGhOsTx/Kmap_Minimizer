@@ -1,7 +1,7 @@
 package booleanalgebra;
 
 import java.util.*;
-import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 
 import static booleanalgebra.Options.VALUES;
 import static java.util.stream.Collectors.*;
@@ -21,80 +21,35 @@ public final class Kmap {
         this.minTerms = minTerms;
     }
 
-    public String getCombinationsAndRespectiveResults() {
-        var sb = new StringBuilder();
-        var pq = getCombinations();
-        int i = 0;
-        while(!pq.isEmpty()) {
-            i++;
-            var set = pq.poll();
-            for(var s : set) {
-                var exp = s.toString();
-                var res = solve(new ArrayList<>(s));
-                sb.append(String.format("row %d: %s = %s%n", i,
-                        exp.replaceAll(", ", " + ").substring(1, exp.length()),
-                        res));
-            }
+    private List<Set<String>> getGroups() {
+        List<Set<String>> groups = new ArrayList<>();
+        while(minTerms.iterator().hasNext()) {
+            var n = minTerms.iterator().next();
+            groups.add(findMaxGroup(n.getRow(), n.getColumn()));
+            minTerms = removeGroupedMinTerms(groups);
         }
-        return sb.toString();
+        return groups;
     }
 
-    private Queue<Set<Set<String>>> getCombinations() {
-        var compareBySize = Comparator.<Set<Set<String>>, Integer>comparing(Set::size).reversed();
-        Queue<Set<Set<String>>> queue = new PriorityQueue<>(compareBySize);
-        for (int i = 0; i < map.length; i++) {
-            for (int j = 0; j < map[i].length; j++) {
-                if (map[i][j].getValue() == 1)
-                    queue.add(getSetOfAllGroupsFromImplicant(i, j, queue));
-            }
-        }
-        return removeEmptySetsFromQueue(compareBySize, queue);
-    }
-
-    private Queue<Set<Set<String>>> removeEmptySetsFromQueue(Comparator<Set<Set<String>>> compareBySize, Queue<Set<Set<String>>> queue) {
-        return queue.stream()
-                .filter(sets -> !sets.isEmpty())
-                .collect(toCollection(() -> new PriorityQueue<>(compareBySize)));
-    }
-
-    private Set<Set<String>> getSetOfAllGroupsFromImplicant(int row, int column, Queue<Set<Set<String>>> queue) {
-        return findGroupsFrom(row, column).stream()
-                .collect(groupingBy(Set::size, toSet()))
-                .entrySet().stream().max(Map.Entry.comparingByKey())
-                .orElseThrow().getValue().stream()
-                .filter(group -> isNotSubsetInTheQueue(queue, group))
+    private Set<Node> removeGroupedMinTerms(List<Set<String>> groups) {
+        return minTerms.stream()
+                .filter(node -> !groups.get(groups.size() - 1).contains(node.getImplicant()))
                 .collect(toSet());
     }
 
-    private boolean isNotSubsetInTheQueue(Queue<Set<Set<String>>> queue, Set<String> possibleGroup) {
-        return queue.stream().flatMap(Set::stream)
-                .noneMatch(group -> possibleGroup.stream()
-                        .filter(group::contains)
-                        .count() >= possibleGroup.size()
-                );
-    }
-
     public String minimize() {
-        var sb = new StringBuilder();
-        var resultantCombinations = getResultantCombinations();
-        for (int i = 0; i < resultantCombinations.size(); i++) {
-            var formattedString = resultantCombinations.get(i).toString()
-                    .replaceAll(", ", " + ");
-            sb.append(String.format("Combination %d: %s%n", i + 1,
-                    formattedString.substring(1, formattedString.length() - 1)));
-        }
-        return sb.toString();
+        return getGroups().stream().map(this::solve).collect(Collectors.joining(" + "));
     }
 
-    private String solve(List<String> list) {
-        if(list.size() == 1)
-            return list.get(0);
+    private String solve(Set<String> implicants) {
+        if(implicants.size() == 1)
+            return implicants.iterator().next();
         var sb = new StringBuilder();
-        var vars = splitIntoVariables(list);
+        var vars = splitIntoVariables(implicants);
         for(int i = 0; i < vars[0].length; i++) {
             boolean initialState = vars[0][i].length() == 1, hasChanged = false;
             for (String[] var : vars) {
-                hasChanged = initialState  ^ var[i].length() == 1;
+                hasChanged = initialState ^ var[i].length() == 1;
                 if (hasChanged)
                     break;
             }
@@ -104,38 +59,15 @@ public final class Kmap {
         return sb.isEmpty() ? "" : sb.substring(0, sb.length() - 1);
     }
 
-    private String[][] splitIntoVariables(List<String> implicants) {
-        String[][] variables = new String[implicants.size()][rowVariables.length + columnVariables.length];
-        for (int i = 0; i < implicants.size(); i++)
-            variables[i] = implicants.get(i).split("\\.");
-        return variables;
+    private String[][] splitIntoVariables(Set<String> implicants) {
+        return implicants.stream().map(impl -> impl.split("\\.")).toArray(String[][]::new);
     }
 
-    private List<ArrayList<String>> getResultantCombinations() {
-        var queue = getCombinations();
-        int numberOfCombinations = queue.stream().map(Set::size).reduce((i,j) -> i * j).orElseThrow();
-        List<ArrayList<String>> resultGroup = constructBuffer(numberOfCombinations);
-        while(!queue.isEmpty()) {
-            var group = queue.poll().stream().map(ArrayList::new).map(this::solve).collect(toList());
-            int i = 0;
-            do {
-                for (int j = 0; j < group.size(); i++, j++) {
-                    resultGroup.get(i).add(group.get(j));
-                }
-            }while(i < numberOfCombinations);
-        }
-        return resultGroup;
-    }
-
-    private List<ArrayList<String>> constructBuffer(int numberOfCombinations) {
-        return IntStream.range(0, numberOfCombinations).mapToObj(ArrayList<String>::new).collect(toList());
-    }
-
-    private Set<Set<String>> findGroupsFrom (int i, int j) {
-        Set<Set<String>> setOfPossibleGroups = new HashSet<>();
+    private Set<String> findMaxGroup(int i, int j) {
+        Queue<Set<String>> setOfPossibleGroups = new PriorityQueue<>(Comparator.<Set<String>, Integer>comparing(Set::size).reversed());
         for(var direction : Direction.values())
             setOfPossibleGroups.add(new HashSet<>(traverseFrom(i, j, direction)));
-        return setOfPossibleGroups;
+        return setOfPossibleGroups.poll();
     }
 
     private Deque<String> traverseFrom(int i, int j, Direction direction) {
@@ -167,8 +99,8 @@ public final class Kmap {
         return false;
     }
 
-    public String toString(Options options) {
-        return new KmapFormatter(this).toString(options);
+    public String toString(Options... options) {
+        return Arrays.stream(options).map(o -> new KmapFormatter(this).toString(o)).collect(joining("\n"));
     }
 
     @Override
