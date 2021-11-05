@@ -1,21 +1,20 @@
-import booleanalgebra.KmapBuilder;
 import booleanalgebra.Kmap;
+import booleanalgebra.KmapBuilder;
 import booleanalgebra.Options;
 
-import java.math.BigInteger;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static booleanalgebra.TermType.MAX_TERMS;
 import static booleanalgebra.TermType.MIN_TERMS;
-import static java.math.BigInteger.ONE;
 
 
 public class Main {
     public static void main(String[] args) {
         int n = 4;
-        Kmap kmap = KmapBuilder.withNumberOfVariables(4).andTermsAt(MIN_TERMS, IntStream.generate(() -> ThreadLocalRandom.current().nextInt(16)).limit(10).toArray()).build();
+        var f = IntStream.generate(() -> ThreadLocalRandom.current().nextInt(16));
+        Kmap kmap = KmapBuilder.withNumberOfVariables(n)
+                .andTermsAt(MIN_TERMS, 5,13,7,15,1,0,2,9,4)
+                .build();
         System.out.println(kmap.toString(Options.values()));
         System.out.println("Solution:");
         System.out.println(kmap.minimize());

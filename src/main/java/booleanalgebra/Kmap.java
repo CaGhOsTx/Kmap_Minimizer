@@ -24,8 +24,7 @@ public final class Kmap {
     private List<Set<String>> getGroups() {
         List<Set<String>> groups = new ArrayList<>();
         while(minTerms.iterator().hasNext()) {
-            var n = minTerms.iterator().next();
-            groups.add(findMaxGroup(n.getRow(), n.getColumn()));
+            groups.add(findMaxGroup(minTerms.iterator().next()));
             minTerms = removeGroupedMinTerms(groups);
         }
         return groups;
@@ -48,8 +47,8 @@ public final class Kmap {
         var vars = splitIntoVariables(implicants);
         for(int i = 0; i < vars[0].length; i++) {
             boolean initialState = vars[0][i].length() == 1, hasChanged = false;
-            for (String[] var : vars) {
-                hasChanged = initialState ^ var[i].length() == 1;
+            for (String[] varRow : vars) {
+                hasChanged = initialState ^ varRow[i].length() == 1;
                 if (hasChanged)
                     break;
             }
@@ -63,27 +62,60 @@ public final class Kmap {
         return implicants.stream().map(impl -> impl.split("\\.")).toArray(String[][]::new);
     }
 
-    private Set<String> findMaxGroup(int i, int j) {
-        Queue<Set<String>> setOfPossibleGroups = new PriorityQueue<>(Comparator.<Set<String>, Integer>comparing(Set::size).reversed());
+    private Set<String> findMaxGroup(Node n) {
+        Queue<Set<String>> groups = new PriorityQueue<>(Comparator.<Set<String>, Integer>comparing(Set::size).reversed());
         for(var direction : Direction.values())
-            setOfPossibleGroups.add(new HashSet<>(traverseFrom(i, j, direction)));
-        return setOfPossibleGroups.poll();
+            groups.add(groupFromNode(n, direction));
+        return groups.poll();
     }
 
-    private Deque<String> traverseFrom(int i, int j, Direction direction) {
+    private HashSet<String> groupFromNode(Node n, Direction direction) {
+        return new HashSet<>(traverseFrom(n.getRow(), n.getColumn(), direction));
+    }
+
+    private Deque<String> traverseFrom(int row, int column, Direction direction) {
         Deque<String> deque = new LinkedList<>();
-        while(map[i][j].getValue() != 0) {
-            if(deque.contains(map[i][j].getImplicant())) break;
-            deque.add(map[i][j].getImplicant());
+        while(map[row][column].getValue() != 0) {
+            if(deque.contains(map[row][column].getImplicant())) break;
+            deque.add(map[row][column].getImplicant());
+            if(isApPowerOf2(deque.size())) {
+                List<String> group = tryCircular(row, column, deque.size(), direction);
+                if(!group.isEmpty()) {
+                    deque.addAll(group);
+                    return deque;
+                }
+            }
+            if(direction.isHorizontal())
+                row = direction.apply(row, map.length);
+            else
+                column = direction.apply(column, map[row].length);
+        }
+        return trimToPow2(deque);
+    }
+
+    private List<String> tryCircular(int i, int j, int range, Direction initialDirection) {
+        List<String> list = new LinkedList<>();
+        Direction direction = initialDirection.iterator().next();
+        System.out.println(direction);
+        int count = 0;
+        while (map[i][j].getValue() != 0 && range > 0) {
             if(direction.isHorizontal())
                 i = direction.apply(i, map.length);
             else
                 j = direction.apply(j, map[i].length);
+            System.out.println(i + " : " + j);
+            list.add(map[i][j].getImplicant());
+            if(++count == 2) {
+                range--;
+                count = 0;
+                direction = direction.iterator().next();
+                System.out.println(direction);
+            }
         }
-        return returnDequeWithPow2Elements(deque);
+        return range == 0 ? list : Collections.emptyList();
     }
 
-    private Deque<String> returnDequeWithPow2Elements(Deque<String> deque) {
+    private Deque<String> trimToPow2(Deque<String> deque) {
         while(!isApPowerOf2(deque.size()))
             deque.removeLast();
         return deque;
