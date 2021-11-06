@@ -29,6 +29,11 @@ final class Node {
     }
 
     @Override
+    public String toString() {
+        return "" + index;
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(implicant, index, value, row, column);
     }

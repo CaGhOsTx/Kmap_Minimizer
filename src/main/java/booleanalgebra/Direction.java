@@ -4,16 +4,17 @@ import java.util.Iterator;
 import java.util.function.ToIntBiFunction;
 
 enum Direction implements Iterable<Direction>{
-    UP((i, length) -> i == 0 ? length - 1 : i - 1),
-    RIGHT((i, length) -> i == length - 1 ? 0 : i + 1),
-    DOWN((i, length) -> i == length - 1 ? 0 : i + 1),
-    LEFT((i, length) -> i == 0 ? length - 1 : i - 1);
+    UP((i, length) -> i == 0 ? length - 1 : i - 1, 0),
+    RIGHT((i, length) -> i == length - 1 ? 0 : i + 1, 1),
+    DOWN((i, length) -> i == length - 1 ? 0 : i + 1, 2),
+    LEFT((i, length) -> i == 0 ? length - 1 : i - 1, 3);
 
     ToIntBiFunction<Integer, Integer> f;
-    private static int currentIndex = 0;
+    int index;
 
-    Direction(ToIntBiFunction<Integer, Integer> f) {
+    Direction(ToIntBiFunction<Integer, Integer> f, int index) {
         this.f = f;
+        this.index = index;
     }
 
     boolean isHorizontal() {
@@ -26,6 +27,7 @@ enum Direction implements Iterable<Direction>{
 
     @Override
     public Iterator<Direction> iterator() {
+        int index = this.index;
         return new Iterator<>() {
             @Override
             public boolean hasNext() {
@@ -34,7 +36,7 @@ enum Direction implements Iterable<Direction>{
 
             @Override
             public Direction next() {
-                return values()[currentIndex == values().length ? 0 : currentIndex++];
+                return values()[index == values().length - 1 ? 0 : index + 1];
             }
         };
     }

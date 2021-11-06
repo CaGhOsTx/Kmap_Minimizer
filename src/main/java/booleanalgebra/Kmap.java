@@ -43,19 +43,29 @@ public final class Kmap {
     private String solve(Set<String> implicants) {
         if(implicants.size() == 1)
             return implicants.iterator().next();
-        var sb = new StringBuilder();
-        var vars = splitIntoVariables(implicants);
-        for(int i = 0; i < vars[0].length; i++) {
-            boolean initialState = vars[0][i].length() == 1, hasChanged = false;
-            for (String[] varRow : vars) {
-                hasChanged = initialState ^ varRow[i].length() == 1;
-                if (hasChanged)
+        return String.join(".", getResultantExpression(splitIntoVariables(implicants)));
+    }
+
+    private List<String> getResultantExpression(String[][] variables) {
+        var expression = new ArrayList<String>();
+        for(int i = 0; i < variables[0].length; i++) {
+            boolean initialState = variableIsPositive(variables[0][i].length()), hasChanged = false;
+            for (String[] varRow : variables) {
+                if (hasChanged = nextVariableIsInverted(varRow[i], initialState))
                     break;
             }
             if(!hasChanged)
-                sb.append(vars[0][i]).append('.');
+                expression.add(variables[0][i]);
         }
-        return sb.isEmpty() ? "" : sb.substring(0, sb.length() - 1);
+        return expression;
+    }
+
+    private boolean nextVariableIsInverted(String variable, boolean initialState) {
+        return initialState ^ variableIsPositive(variable.length());
+    }
+
+    private boolean variableIsPositive(int variableStringLength) {
+        return variableStringLength == 1;
     }
 
     private String[][] splitIntoVariables(Set<String> implicants) {
@@ -75,44 +85,50 @@ public final class Kmap {
 
     private Deque<String> traverseFrom(int row, int column, Direction direction) {
         Deque<String> deque = new LinkedList<>();
-        while(map[row][column].getValue() != 0) {
+        while(map[row][column].getValue() == 1) {
             if(deque.contains(map[row][column].getImplicant())) break;
             deque.add(map[row][column].getImplicant());
-            if(isApPowerOf2(deque.size())) {
-                List<String> group = tryCircular(row, column, deque.size(), direction);
+            if(isEligibleForCircularTraversal(deque)) {
+                List<String> group = traverseCircular(row, column, deque.size(), direction);
                 if(!group.isEmpty()) {
                     deque.addAll(group);
                     return deque;
                 }
             }
             if(direction.isHorizontal())
-                row = direction.apply(row, map.length);
-            else
                 column = direction.apply(column, map[row].length);
+            else
+                row = direction.apply(row, map.length);
         }
         return trimToPow2(deque);
     }
 
-    private List<String> tryCircular(int i, int j, int range, Direction initialDirection) {
+    private boolean isEligibleForCircularTraversal(Deque<String> deque) {
+        return deque.size() != 1 && isApPowerOf2(deque.size());
+    }
+
+    private List<String> traverseCircular(int i, int j, int size, Direction initialDirection) {
         List<String> list = new LinkedList<>();
         Direction direction = initialDirection.iterator().next();
-        System.out.println(direction);
+        size--;
         int count = 0;
-        while (map[i][j].getValue() != 0 && range > 0) {
+        while (size > 0) {
             if(direction.isHorizontal())
-                i = direction.apply(i, map.length);
-            else
                 j = direction.apply(j, map[i].length);
-            System.out.println(i + " : " + j);
-            list.add(map[i][j].getImplicant());
-            if(++count == 2) {
-                range--;
-                count = 0;
+            else
+                i = direction.apply(i, map.length);
+            if(map[i][j].getValue() == 1)
+                list.add(map[i][j].getImplicant());
+            else
+                return Collections.emptyList();
+            if(++count == size)
                 direction = direction.iterator().next();
-                System.out.println(direction);
+            if(count == 2 * size) {
+                count = 0;
+                size--;
             }
         }
-        return range == 0 ? list : Collections.emptyList();
+        return list;
     }
 
     private Deque<String> trimToPow2(Deque<String> deque) {
