@@ -123,7 +123,7 @@ public final class Kmap {
                 return Collections.emptyList();
             if(++count == size)
                 direction = direction.iterator().next();
-            if(count == 2 * size) {
+            if(count == size << 1) {
                 count = 0;
                 size--;
             }
