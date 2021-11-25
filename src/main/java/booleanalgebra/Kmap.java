@@ -46,7 +46,8 @@ public final class Kmap {
     }
 
     public String minimize() {
-        return getGroups().stream().map(this::solve).collect(Collectors.joining(" + "));
+        String solution = getGroups().stream().map(this::solve).collect(joining(" + "));
+        return solution.isBlank() ? "No solution!" : solution;
     }
 
     private String solve(Queue<String> implicants) {
@@ -89,17 +90,6 @@ public final class Kmap {
         return groups.poll();
     }
 
-    private Deque<Node> groupFromNode(Node n, Direction direction) {
-        Deque<Node> group = traverseFrom(n.getRCMatrix(), direction, 0);
-        if(group.size() > 1) {
-            var lastNode = group.getLast();
-            var leftBuffer = fillBuffer(direction, group.size(), lastNode.getRCMatrix(), direction.previous());
-            var rightBuffer = fillBuffer(direction, group.size(), lastNode.getRCMatrix(), direction.next());
-            group.addAll(trimToPow2(leftBuffer.size() > rightBuffer.size() ? leftBuffer : rightBuffer, group.size()));
-        }
-        return group;
-    }
-
     Deque<Node> trimToPow2(Deque<Node> deque, int lengthOfBase) {
         int length = lengthOfBase + deque.size();
         while(!isAPowerOf2(length)) {
@@ -109,20 +99,24 @@ public final class Kmap {
         return deque;
     }
 
-    private Deque<Node> fillBuffer(Direction original, int limit, int[] RCMatrix, Direction side) {
+    private Deque<Node> groupFromNode(Node n, Direction direction) {
+        Deque<Node> group = traverseFrom(n.getRCMatrix(), direction, 0);
+        if(group.size() > 1)
+            group.addAll(lookForLargerGroups(direction, group.size(), group.getLast().getRCMatrix(), direction.next()));
+        return group;
+    }
+
+    private Deque<Node> lookForLargerGroups(Direction original, int limit, int[] RCMatrix, Direction side) {
         Deque<Node> buffer = new ArrayDeque<>();
         side.advance(RCMatrix, BOUNDARIES);
-        for (Direction d = original.opposite(); isValid(MAP[RCMatrix[0]][RCMatrix[1]]); d = d.opposite()) {
-            var possibleGroup = traverseFrom(RCMatrix, d, limit);
-            if(possibleGroup.size() == limit)
-                buffer.addAll(possibleGroup);
-            else {
-                buffer.clear();
-                return buffer;
-            }
+        int i = 0;
+        for (var direction = original.opposite(); i < (direction.isHorizontal() ? MAP[0].length : MAP.length) - 1 && isValid(MAP[RCMatrix[0]][RCMatrix[1]]); direction = direction.opposite()) {
+            var possibleGroup = traverseFrom(RCMatrix, direction, limit);
+            if(possibleGroup.size() != limit) break;
+            buffer.addAll(possibleGroup);
             side.advance(RCMatrix, BOUNDARIES);
         }
-        return buffer;
+        return trimToPow2(buffer, limit);
     }
 
     private Deque<Node> traverseFrom(int[] rcMatrix, Direction direction, int limit) {

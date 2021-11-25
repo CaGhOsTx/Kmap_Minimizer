@@ -1,6 +1,7 @@
 package booleanalgebra;
 
-public interface BiDirectionalCircularIterator<T> {
+interface BiDirectionalCircularIterator<T> {
     T next();
+
     T previous();
 }

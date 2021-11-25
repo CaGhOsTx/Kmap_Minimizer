@@ -18,7 +18,7 @@ public class Main {
         System.out.println(String.join(".", Collections.emptyList()));
         var f = IntStream.generate(() -> ThreadLocalRandom.current().nextInt(16));
         Kmap kmap = KmapBuilder.withNumberOfVariables(n)
-                .andTermsAt(MIN_TERM, 0,1,2,3,4,5,7,6,13,15)
+                .andTermsAt(MIN_TERM, 0,1,2,3,4,5,6,7,8,9,11,12,13,14,15)
                 .build();
         System.out.println(kmap.toString(Options.values()));
         System.out.println("Solution:");
