@@ -3,16 +3,16 @@ package booleanalgebra;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.TreeSet;
-import static booleanalgebra.TermType.MAX_TERMS;
-import static booleanalgebra.TermType.MIN_TERMS;
+
+import static booleanalgebra.TermType.MAX_TERM;
+import static booleanalgebra.TermType.MIN_TERM;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toCollection;
 
 public class KmapBuilder {
     private  final String[] rowVariables, columnVariables, rowGrayCode, columnGrayCode;
-    private Set<Integer> terms;
+    private Set<Integer> terms = new HashSet<>();
     private final Set<Node> minTerms;
     private TermType termType;
 
@@ -57,18 +57,18 @@ public class KmapBuilder {
 
     public FinalizedBuilder andTerms(String... terms) {
         termType = determineTermType(terms);
-        this.terms = Arrays.stream(terms)
+        Arrays.stream(terms)
                 .map(this::getGrayCodeFromTerm)
                 .map(this::getGrayCodeIndex)
-                .collect(toCollection(TreeSet::new));
+                .collect(toCollection(() -> this.terms));
         return new FinalizedBuilder();
     }
 
     public FinalizedBuilder andGrayCodeTerms(TermType termType, String... gcTerms) {
         this.termType = termType;
-        this.terms = Arrays.stream(gcTerms)
+        Arrays.stream(gcTerms)
                 .map(this::getGrayCodeIndex)
-                .collect(toCollection(TreeSet::new));
+                .collect(toCollection(() -> this.terms));
         return new FinalizedBuilder();
     }
 
@@ -107,18 +107,22 @@ public class KmapBuilder {
 
     private int grayCodeOf(String term) {
         if(termType.isMIN_TERMS())
-            return term.length() == 1 ? termType.value : termType.complement;
-        return term.length() == 1 ? termType.complement : termType.value;
+            return isPositive(term) ? termType.value : termType.complement;
+        return isPositive(term) ? termType.complement : termType.value;
+    }
+
+    private boolean isPositive(String term) {
+        return term.charAt(term.length() - 1) == '\u0305';
     }
 
     private TermType determineTermType(String[] terms) {
-        return terms[0].contains(".") ? MIN_TERMS : MAX_TERMS;
+        return terms[0].contains(".") ? MIN_TERM : MAX_TERM;
     }
 
     public FinalizedBuilder andTermsAt(TermType termType, int... indexes) {
         CheckForOutOfBounds(indexes);
         this.termType = termType;
-        terms = Arrays.stream(indexes).boxed().collect(toCollection(TreeSet::new));
+        terms = Arrays.stream(indexes).boxed().collect(toCollection(HashSet::new));
         return new FinalizedBuilder();
     }
 
@@ -144,18 +148,18 @@ public class KmapBuilder {
         int index = getIndex(row, column);
         String term = generateTerm(row, column, termType.operator);
         Node n = new Node(row, column, index, terms.contains(index) ? termType.value : termType.complement, term);
-        if(n.getValue() == 1)
+        if(n.getValue() == '1')
             minTerms.add(n);
         return n;
     }
 
-    private String generateTerm(int row, int column, String operator) {
+    private String generateTerm(int row, int column, char operator) {
         var sb = generatePartialSubstring(column, columnGrayCode, columnVariables, operator)
                 .append(generatePartialSubstring(row, rowGrayCode, rowVariables, operator));
         return sb.substring(0, sb.length() - 1);
     }
 
-    private StringBuilder generatePartialSubstring(int index, String[] grayCode, String[] variables, String operator) {
+    private StringBuilder generatePartialSubstring(int index, String[] grayCode, String[] variables, char operator) {
         var sb = new StringBuilder();
         for (int i = 0; i < grayCode[index].length(); i++) {
             sb.append(variables[i]);
@@ -195,8 +199,6 @@ public class KmapBuilder {
         }
         return new String[] {"0", "1"};
     }
-
-
 
     public class FinalizedBuilder {
         private FinalizedBuilder() {}

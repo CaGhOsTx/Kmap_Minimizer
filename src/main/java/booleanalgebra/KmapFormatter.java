@@ -17,9 +17,9 @@ class KmapFormatter {
 
 
     private StringBuilder appendVariableList() {
-        sb = appendVariables(kmap.rowVariables);
+        sb = appendVariables(kmap.ROW_VARIABLES);
         sb.append("\\");
-        sb = appendVariables(kmap.columnVariables);
+        sb = appendVariables(kmap.COLUMNS_VARIABLES);
         rowPadding = rowPadding();
         columnPadding = setColumnPaddingForGrayCode();
         lengthOfRowAndColumn = lengthOfRowAndColumn();
@@ -42,7 +42,7 @@ class KmapFormatter {
     }
 
     private String rowPadding() {
-        return " ".repeat(sb.length() - kmap.rowGrayCode[0].length());
+        return " ".repeat(sb.length() - kmap.ROW_GRAY_CODE[0].length());
     }
 
     private StringBuilder appendBar() {
@@ -53,17 +53,17 @@ class KmapFormatter {
     }
 
     private int lengthOfRowAndColumn() {
-        return kmap.columnGrayCode[0].length()
-                * kmap.columnGrayCode.length
-                + delimiter.length() * kmap.columnGrayCode.length
-                + kmap.columnGrayCode.length
+        return kmap.COLUMN_GRAY_CODE[0].length()
+                * kmap.COLUMN_GRAY_CODE.length
+                + delimiter.length() * kmap.COLUMN_GRAY_CODE.length
+                + kmap.COLUMN_GRAY_CODE.length
                 * (columnPadding[0].length() + columnPadding[1].length())
-                + kmap.rowGrayCode[0].length();
+                + kmap.ROW_GRAY_CODE[0].length();
     }
 
     private String[] columnPadding() {
-        int length = Math.abs(kmap.columnVariables.length
-                - nodeField.from(kmap.map[0][0]).length()
+        int length = Math.abs(kmap.COLUMNS_VARIABLES.length
+                - nodeField.from(kmap.MAP[0][0]).length()
                 + getOverLineCount());
         int left = isOdd(length) ? (length >> 1) + 1 : length >> 1;
         int right = length - left;
@@ -79,7 +79,7 @@ class KmapFormatter {
 
     private int getOverLineCount() {
         int count = 0;
-        for(char c : nodeField.from(kmap.map[0][0]).toCharArray()) {
+        for(char c : nodeField.from(kmap.MAP[0][0]).toCharArray()) {
             count += c == '\u0305' ? 1 : 0;
         }
         return count;
@@ -107,9 +107,9 @@ class KmapFormatter {
     }
 
     private StringBuilder appendMainData() {
-        for (int i = 0; i < kmap.map.length; i++) {
+        for (int i = 0; i < kmap.MAP.length; i++) {
             sb = appendCurrentRowGrayCode(i);
-            for(Node node : kmap.map[i])
+            for(Node node : kmap.MAP[i])
                 sb = appendNode(node);
             sb = removeLastDelimiter();
             sb = appendBar();
@@ -122,7 +122,7 @@ class KmapFormatter {
     }
 
     private StringBuilder appendNode(Node node) {
-        return sb.append(center(nodeField.from(kmap.map[0][0]), removeZero(node))).append(delimiter);
+        return sb.append(center(nodeField.from(kmap.MAP[0][0]), removeZero(node))).append(delimiter);
     }
 
     private String removeZero(Node node) {
@@ -133,16 +133,16 @@ class KmapFormatter {
     }
 
     private StringBuilder appendCurrentRowGrayCode(int i) {
-        return sb.append(rowPadding).append(kmap.rowGrayCode[i]).append(delimiter);
+        return sb.append(rowPadding).append(kmap.ROW_GRAY_CODE[i]).append(delimiter);
     }
 
     private StringBuilder appendColumnGrayCode() {
-        for(String s : kmap.columnGrayCode)
-            sb.append(center(kmap.columnGrayCode[0], s)).append(delimiter);
+        for(String s : kmap.COLUMN_GRAY_CODE)
+            sb.append(center(kmap.COLUMN_GRAY_CODE[0], s)).append(delimiter);
         return removeLastDelimiter();
     }
 
     private boolean columnGrayCodeIsLongerThanCellData() {
-        return kmap.columnVariables.length > nodeField.from(kmap.map[0][0]).length();
+        return kmap.COLUMNS_VARIABLES.length > nodeField.from(kmap.MAP[0][0]).length();
     }
 }

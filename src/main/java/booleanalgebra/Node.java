@@ -4,9 +4,10 @@ import java.util.Objects;
 
 final class Node {
     private final String implicant;
-    private final int index, value, row, column;
+    private final int index, row, column;
+    private final char value;
 
-    Node(int row, int column, int index, int value, String implicant) {
+    Node(int row, int column, int index, char value, String implicant) {
         this.index = index;
         this.value = value;
         this.implicant = implicant;
@@ -30,7 +31,7 @@ final class Node {
 
     @Override
     public String toString() {
-        return "" + index;
+        return String.valueOf(index);
     }
 
     @Override
@@ -50,7 +51,11 @@ final class Node {
         return index;
     }
 
-    int getValue() {
+    char getValue() {
         return value;
+    }
+
+    int[] getRCMatrix() {
+        return new int[] {row, column};
     }
 }

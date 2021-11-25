@@ -8,31 +8,40 @@ import static java.util.stream.Collectors.*;
 
 public final class Kmap {
 
-    final String[] rowVariables, columnVariables, rowGrayCode, columnGrayCode;
-    final Node[][] map;
+    final String[] ROW_VARIABLES, COLUMNS_VARIABLES, ROW_GRAY_CODE, COLUMN_GRAY_CODE;
+    final Node[][] MAP;
     Set<Node> minTerms;
+    private final int[] BOUNDARIES;
 
-    Kmap (String[] rowVariables, String[] columnVariables, String[] rowGrayCode, String[] columnGrayCode, Node[][] map, Set<Node> minTerms) {
-        this.rowVariables = rowVariables;
-        this.columnVariables = columnVariables;
-        this.rowGrayCode = rowGrayCode;
-        this.columnGrayCode = columnGrayCode;
-        this.map = map;
+    Kmap (String[] ROW_VARIABLES, String[] COLUMNS_VARIABLES, String[] ROW_GRAY_CODE, String[] COLUMN_GRAY_CODE, Node[][] MAP, Set<Node> minTerms) {
+        this.ROW_VARIABLES = ROW_VARIABLES;
+        this.COLUMNS_VARIABLES = COLUMNS_VARIABLES;
+        this.ROW_GRAY_CODE = ROW_GRAY_CODE;
+        this.COLUMN_GRAY_CODE = COLUMN_GRAY_CODE;
+        this.MAP = MAP;
         this.minTerms = minTerms;
+        BOUNDARIES = new int[] {MAP.length, MAP[0].length};
     }
-
-    private List<Set<String>> getGroups() {
-        List<Set<String>> groups = new ArrayList<>();
+    private Deque<Queue<String>> getGroups() {
+        Deque<Queue<Node>> groups = new ArrayDeque<>();
         while(minTerms.iterator().hasNext()) {
             groups.add(findMaxGroup(minTerms.iterator().next()));
             minTerms = removeGroupedMinTerms(groups);
         }
-        return groups;
+        return mapFromNodeToImplicant(groups);
     }
 
-    private Set<Node> removeGroupedMinTerms(List<Set<String>> groups) {
+    private Deque<Queue<String>> mapFromNodeToImplicant(Deque<Queue<Node>> groups) {
+        return groups.stream()
+                .map(q -> q.stream()
+                        .map(Node::getImplicant)
+                        .collect(Collectors.toCollection(ArrayDeque::new)))
+                .collect(Collectors.toCollection(ArrayDeque::new));
+    }
+
+    private Set<Node> removeGroupedMinTerms(Deque<Queue<Node>> groups) {
         return minTerms.stream()
-                .filter(node -> !groups.get(groups.size() - 1).contains(node.getImplicant()))
+                .filter(node -> !groups.getLast().contains(node))
                 .collect(toSet());
     }
 
@@ -40,18 +49,19 @@ public final class Kmap {
         return getGroups().stream().map(this::solve).collect(Collectors.joining(" + "));
     }
 
-    private String solve(Set<String> implicants) {
+    private String solve(Queue<String> implicants) {
         if(implicants.size() == 1)
-            return implicants.iterator().next();
+            return implicants.poll();
         return String.join(".", getResultantExpression(splitIntoVariables(implicants)));
     }
 
     private List<String> getResultantExpression(String[][] variables) {
         var expression = new ArrayList<String>();
         for(int i = 0; i < variables[0].length; i++) {
-            boolean initialState = variableIsPositive(variables[0][i].length()), hasChanged = false;
+            boolean initialState = variableIsPositive(variables[0][i]), hasChanged = false;
             for (String[] varRow : variables) {
-                if (hasChanged = nextVariableIsInverted(varRow[i], initialState))
+                hasChanged = nextVariableIsInverted(varRow[i], initialState);
+                if (hasChanged)
                     break;
             }
             if(!hasChanged)
@@ -61,90 +71,83 @@ public final class Kmap {
     }
 
     private boolean nextVariableIsInverted(String variable, boolean initialState) {
-        return initialState ^ variableIsPositive(variable.length());
+        return initialState ^ variableIsPositive(variable);
     }
 
-    private boolean variableIsPositive(int variableStringLength) {
-        return variableStringLength == 1;
+    private boolean variableIsPositive(String variable) {
+        return variable.charAt(variable.length() - 1) == '\u0305';
     }
 
-    private String[][] splitIntoVariables(Set<String> implicants) {
+    private String[][] splitIntoVariables(Queue<String> implicants) {
         return implicants.stream().map(impl -> impl.split("\\.")).toArray(String[][]::new);
     }
 
-    private Set<String> findMaxGroup(Node n) {
-        Queue<Set<String>> groups = new PriorityQueue<>(Comparator.<Set<String>, Integer>comparing(Set::size).reversed());
+    private Queue<Node> findMaxGroup(Node n) {
+        Queue<Queue<Node>> groups = new PriorityQueue<>(Comparator.<Queue<Node>, Integer>comparing(Queue::size).reversed());
         for(var direction : Direction.values())
             groups.add(groupFromNode(n, direction));
         return groups.poll();
     }
 
-    private HashSet<String> groupFromNode(Node n, Direction direction) {
-        return new HashSet<>(traverseFrom(n.getRow(), n.getColumn(), direction));
-    }
-
-    private Deque<String> traverseFrom(int row, int column, Direction direction) {
-        Deque<String> deque = new LinkedList<>();
-        while(map[row][column].getValue() == 1) {
-            if(deque.contains(map[row][column].getImplicant())) break;
-            deque.add(map[row][column].getImplicant());
-            if(isEligibleForCircularTraversal(deque)) {
-                List<String> group = traverseCircular(row, column, deque.size(), direction);
-                if(!group.isEmpty()) {
-                    deque.addAll(group);
-                    return deque;
-                }
-            }
-            if(direction.isHorizontal())
-                column = direction.apply(column, map[row].length);
-            else
-                row = direction.apply(row, map.length);
+    private Deque<Node> groupFromNode(Node n, Direction direction) {
+        Deque<Node> group = traverseFrom(n.getRCMatrix(), direction, 0);
+        if(group.size() > 1) {
+            var lastNode = group.getLast();
+            var leftBuffer = fillBuffer(direction, group.size(), lastNode.getRCMatrix(), direction.previous());
+            var rightBuffer = fillBuffer(direction, group.size(), lastNode.getRCMatrix(), direction.next());
+            group.addAll(trimToPow2(leftBuffer.size() > rightBuffer.size() ? leftBuffer : rightBuffer, group.size()));
         }
-        return trimToPow2(deque);
+        return group;
     }
 
-    private boolean isEligibleForCircularTraversal(Deque<String> deque) {
-        return deque.size() != 1 && isApPowerOf2(deque.size());
-    }
-
-    private List<String> traverseCircular(int i, int j, int size, Direction initialDirection) {
-        List<String> list = new LinkedList<>();
-        Direction direction = initialDirection.iterator().next();
-        size--;
-        int count = 0;
-        while (size > 0) {
-            if(direction.isHorizontal())
-                j = direction.apply(j, map[i].length);
-            else
-                i = direction.apply(i, map.length);
-            if(map[i][j].getValue() == 1)
-                list.add(map[i][j].getImplicant());
-            else
-                return Collections.emptyList();
-            if(++count == size)
-                direction = direction.iterator().next();
-            if(count == size << 1) {
-                count = 0;
-                size--;
-            }
-        }
-        return list;
-    }
-
-    private Deque<String> trimToPow2(Deque<String> deque) {
-        while(!isApPowerOf2(deque.size()))
+    Deque<Node> trimToPow2(Deque<Node> deque, int lengthOfBase) {
+        int length = lengthOfBase + deque.size();
+        while(!isAPowerOf2(length)) {
             deque.removeLast();
+            length--;
+        }
         return deque;
     }
 
-    private boolean isApPowerOf2(int groupLength) {
-        int i = 1;
-        while(i <= groupLength) {
-            if(i == groupLength)
-                return true;
-            i <<= 1;
+    private Deque<Node> fillBuffer(Direction original, int limit, int[] RCMatrix, Direction side) {
+        Deque<Node> buffer = new ArrayDeque<>();
+        side.advance(RCMatrix, BOUNDARIES);
+        for (Direction d = original.opposite(); isValid(MAP[RCMatrix[0]][RCMatrix[1]]); d = d.opposite()) {
+            var possibleGroup = traverseFrom(RCMatrix, d, limit);
+            if(possibleGroup.size() == limit)
+                buffer.addAll(possibleGroup);
+            else {
+                buffer.clear();
+                return buffer;
+            }
+            side.advance(RCMatrix, BOUNDARIES);
         }
-        return false;
+        return buffer;
+    }
+
+    private Deque<Node> traverseFrom(int[] rcMatrix, Direction direction, int limit) {
+        Deque<Node> group = new ArrayDeque<>(), buffer = new ArrayDeque<>();
+        for(int i = 0; (limit == 0 || i < limit) && isValid(MAP[rcMatrix[0]][rcMatrix[1]]); i++) {
+            if(MAP[rcMatrix[0]][rcMatrix[1]] == group.peekFirst()) break;
+            buffer.add(MAP[rcMatrix[0]][rcMatrix[1]]);
+            if(isAPowerOf2(buffer.size() + group.size()))
+                unloadBuffer(group, buffer);
+            direction.advance(rcMatrix, BOUNDARIES);
+        }
+        return group;
+    }
+
+    private boolean isValid(Node node) {
+        return node.getValue() == '1' || node.getValue() == 'x';
+    }
+
+    private void unloadBuffer(Queue<Node> max, Queue<Node> buffer) {
+        max.addAll(buffer);
+        buffer.clear();
+    }
+
+    private boolean isAPowerOf2(int groupLength) {
+        return groupLength > 0 && (groupLength & (groupLength - 1)) == 0;
     }
 
     public String toString(Options... options) {
