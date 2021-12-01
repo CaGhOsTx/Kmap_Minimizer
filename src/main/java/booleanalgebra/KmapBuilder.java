@@ -1,37 +1,41 @@
 package booleanalgebra;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import static booleanalgebra.TermType.MAX_TERM;
-import static booleanalgebra.TermType.MIN_TERM;
+import static booleanalgebra.TermType.*;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toCollection;
 
 public class KmapBuilder {
     private  final String[] rowVariables, columnVariables, rowGrayCode, columnGrayCode;
-    private Set<Integer> terms = new HashSet<>();
-    private final Set<Node> minTerms;
-    private TermType termType;
-
+    private final Map<TermType, Set<Integer>> TERMS = new HashMap<>();
+    private final Set<Node> minTerms, maxTerms;
 
     private KmapBuilder(String[] rowVariables, String[] columnVariables) {
         this.rowVariables = rowVariables;
         this.columnVariables = columnVariables;
-        this.minTerms = new HashSet<>();
+        minTerms = new HashSet<>();
+        maxTerms = new HashSet<>();
         rowGrayCode = grayCode(rowVariables.length);
         columnGrayCode = grayCode(columnVariables.length);
     }
 
+    /**
+     * Assigns
+     * @param numberOfVariables
+     * @return
+     */
     public static KmapBuilder withNumberOfVariables(int numberOfVariables) {
-        char temp = 'A';
+        boolean greaterThanAlphabet = numberOfVariables > 26;
+        char temp = greaterThanAlphabet ? 'X' : 'A';
+        int suffix = 0;
         String[] vars = new String[numberOfVariables - 1];
         for (int i = 0; i < vars.length; i++) {
-            vars[i] = String.valueOf(++temp);
+            vars[i] = greaterThanAlphabet ? temp + " " + ++suffix : String.valueOf(++temp);
         }
-        return withVariables("A", vars);
+        return withVariables(greaterThanAlphabet ? "X0" : "A", vars);
     }
 
     public static KmapBuilder withVariables(String var1, String... vars) {
@@ -55,21 +59,20 @@ public class KmapBuilder {
         return rowVars;
     }
 
-    public FinalizedBuilder andTerms(String... terms) {
-        termType = determineTermType(terms);
-        Arrays.stream(terms)
-                .map(this::getGrayCodeFromTerm)
+    public KmapBuilder andTerms(String... terms) {
+        var termType = determineTermType(terms);
+        this.TERMS.put(termType, Arrays.stream(terms)
+                .map(term -> getGrayCodeFromTerm(term, termType))
                 .map(this::getGrayCodeIndex)
-                .collect(toCollection(() -> this.terms));
-        return new FinalizedBuilder();
+                .collect(Collectors.toSet()));
+        return this;
     }
 
-    public FinalizedBuilder andGrayCodeTerms(TermType termType, String... gcTerms) {
-        this.termType = termType;
-        Arrays.stream(gcTerms)
+    public KmapBuilder andGrayCodeTerms(TermType termType, String... gcTerms) {
+        this.TERMS.put(termType, Arrays.stream(gcTerms)
                 .map(this::getGrayCodeIndex)
-                .collect(toCollection(() -> this.terms));
-        return new FinalizedBuilder();
+                .collect(Collectors.toSet()));
+        return this;
     }
 
     private int getGrayCodeIndex(String grayCode) {
@@ -91,39 +94,34 @@ public class KmapBuilder {
         return index;
     }
 
-    private String getGrayCodeFromTerm(String term) {
-        return Arrays.stream(getVariablesFromTerm(term))
-                .map(var -> termType.isMIN_TERMS() ? var : complement(var))
-                .map(this::grayCodeOf)
+    private String getGrayCodeFromTerm(String term, TermType t) {
+        return Arrays.stream(getVariablesFromTerm(term, t))
+                .map(var -> t.isMIN_TERMS() ? var : complement(var).toString())
+                .map(var -> grayCodeOf(var, t))
                 .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
                 .toString();
     }
 
-    private String[] getVariablesFromTerm(String term) { return term.split("[" + termType.operator + "]"); }
+    private String[] getVariablesFromTerm(String term, TermType t) { return term.split("[" + t.operator + "]"); }
 
-    private String complement(String s) {
-        return s.contains("\u0305") ? String.valueOf(s.charAt(0)) : s + '\u0305';
-    }
-
-    private int grayCodeOf(String term) {
-        if(termType.isMIN_TERMS())
-            return isPositive(term) ? termType.value : termType.complement;
-        return isPositive(term) ? termType.complement : termType.value;
+    private int grayCodeOf(String term, TermType t) {
+        if(t.isMIN_TERMS())
+            return isPositive(term) ? t.value : t.complement;
+        return isPositive(term) ? t.complement : t.value;
     }
 
     private boolean isPositive(String term) {
-        return term.charAt(term.length() - 1) == '\u0305';
+        return term.contains(String.valueOf('\u0305'));
     }
 
     private TermType determineTermType(String[] terms) {
         return terms[0].contains(".") ? MIN_TERM : MAX_TERM;
     }
 
-    public FinalizedBuilder andTermsAt(TermType termType, int... indexes) {
+    public KmapBuilder andTermsAt(TermType termType, int... indexes) {
         CheckForOutOfBounds(indexes);
-        this.termType = termType;
-        terms = Arrays.stream(indexes).boxed().collect(toCollection(HashSet::new));
-        return new FinalizedBuilder();
+        TERMS.put(termType, Arrays.stream(indexes).boxed().collect(toCollection(HashSet::new)));
+        return this;
     }
 
     private void CheckForOutOfBounds(int[] indexes) {
@@ -146,11 +144,25 @@ public class KmapBuilder {
 
     private Node createNode(int row, int column) {
         int index = getIndex(row, column);
+        var termType = determineTermType(index);
         String term = generateTerm(row, column, termType.operator);
-        Node n = new Node(row, column, index, terms.contains(index) ? termType.value : termType.complement, term);
+        Node n = new Node(row, column, index, termType.value, term);
+        addNodeToAppropriateTermSet(n);
+        return n;
+    }
+
+    private void addNodeToAppropriateTermSet(Node n) {
         if(n.getValue() == '1')
             minTerms.add(n);
-        return n;
+        else if(n.getValue() == '0')
+            maxTerms.add(n);
+    }
+
+    private TermType determineTermType(int index) {
+        for(var tt : TERMS.keySet())
+            if(TERMS.get(tt).contains(index))
+                return tt;
+        return TERMS.containsKey(MIN_TERM) ? MAX_TERM : MIN_TERM;
     }
 
     private String generateTerm(int row, int column, char operator) {
@@ -161,11 +173,20 @@ public class KmapBuilder {
 
     private StringBuilder generatePartialSubstring(int index, String[] grayCode, String[] variables, char operator) {
         var sb = new StringBuilder();
-        for (int i = 0; i < grayCode[index].length(); i++) {
-            sb.append(variables[i]);
-            if (grayCode[index].charAt(i) == '0') sb.append('\u0305');
-            sb.append(operator);
-        }
+        for (int i = 0; i < grayCode[index].length(); i++)
+            sb.append(isNegative(i, grayCode[index], '0') ? complement(variables[i]) : variables[i])
+                    .append(operator);
+        return sb;
+    }
+
+    private boolean isNegative(int i, String s, char c) {
+        return s.charAt(i) == c;
+    }
+
+    private StringBuilder complement(String term) {
+        var sb = new StringBuilder();
+        for (int i = 0; i < term.length(); i++)
+            sb.append(term.charAt(i)).append('\u0305');
         return sb;
     }
 
@@ -200,17 +221,15 @@ public class KmapBuilder {
         return new String[] {"0", "1"};
     }
 
-    public class FinalizedBuilder {
-        private FinalizedBuilder() {}
-        public Kmap build() {
-            return new Kmap(
-                    rowVariables,
-                    columnVariables,
-                    rowGrayCode,
-                    columnGrayCode,
-                    generateMap(),
-                    minTerms
-            );
-        }
+    public Kmap build() {
+        return new Kmap(
+                rowVariables,
+                columnVariables,
+                rowGrayCode,
+                columnGrayCode,
+                generateMap(),
+                minTerms,
+                maxTerms
+        );
     }
 }

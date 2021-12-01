@@ -10,16 +10,17 @@ public final class Kmap {
 
     final String[] ROW_VARIABLES, COLUMNS_VARIABLES, ROW_GRAY_CODE, COLUMN_GRAY_CODE;
     final Node[][] MAP;
-    Set<Node> minTerms;
+    Set<Node> minTerms, maxTerms;
     private final int[] BOUNDARIES;
 
-    Kmap (String[] ROW_VARIABLES, String[] COLUMNS_VARIABLES, String[] ROW_GRAY_CODE, String[] COLUMN_GRAY_CODE, Node[][] MAP, Set<Node> minTerms) {
+    Kmap (String[] ROW_VARIABLES, String[] COLUMNS_VARIABLES, String[] ROW_GRAY_CODE, String[] COLUMN_GRAY_CODE, Node[][] MAP, Set<Node> minTerms, Set<Node> maxTerms) {
         this.ROW_VARIABLES = ROW_VARIABLES;
         this.COLUMNS_VARIABLES = COLUMNS_VARIABLES;
         this.ROW_GRAY_CODE = ROW_GRAY_CODE;
         this.COLUMN_GRAY_CODE = COLUMN_GRAY_CODE;
         this.MAP = MAP;
         this.minTerms = minTerms;
+        this.maxTerms = maxTerms;
         BOUNDARIES = new int[] {MAP.length, MAP[0].length};
     }
     private Deque<Queue<String>> getGroups() {

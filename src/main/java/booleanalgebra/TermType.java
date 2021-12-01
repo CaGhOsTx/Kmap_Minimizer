@@ -3,7 +3,7 @@ package booleanalgebra;
 public enum TermType {
     MIN_TERM('1', '0', '.'),
     MAX_TERM('0', '1','+'),
-    DONT_CARE('x', 'x', '.');
+    DONT_CARE('x', '0', '.');
 
 
     final char value, complement, operator;
