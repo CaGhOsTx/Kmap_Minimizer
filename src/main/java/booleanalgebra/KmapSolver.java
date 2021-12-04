@@ -19,9 +19,13 @@ final class KmapSolver {
         BOUNDARIES = new int[] {MAP.length, MAP[0].length};
         this.solutionType = solutionType;
         this.terms = terms;
-        solution = getGroups().stream()
-                .map(group -> reduce(solutionType, group))
-                .filter(group -> !group.isEmpty()).collect(toList());
+        var groupStream = getGroups().stream();
+        if(solutionType == SolutionType.PRODUCT_OF_SUMS)
+            groupStream = groupStream.map(q -> q.stream().map(KmapBuilder::complement)
+                            .map(StringBuilder::toString)
+                            .collect(Collectors.toCollection(ArrayDeque::new)));
+        solution = groupStream.map(group -> reduce(solutionType, group))
+                .collect(toList());
     }
 
     public List<String> getSolution() {
@@ -81,7 +85,7 @@ final class KmapSolver {
     }
 
     private String[][] splitIntoVariables(Queue<String> implicants) {
-        return implicants.stream().map(impl -> impl.split("\\\\" + solutionType.INNER_DELIMITER)).toArray(String[][]::new);
+        return implicants.stream().map(impl -> impl.split(solutionType.getInnerRegex())).toArray(String[][]::new);
     }
 
     private Queue<Node> findMaxGroup(Node n) {

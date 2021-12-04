@@ -14,7 +14,7 @@ public enum SolutionType {
     }
 
     String group(String term) {
-        if(this == PRODUCT_OF_SUMS)
+        if(this == PRODUCT_OF_SUMS && term.length() > 2)
             return "(" + term + ")";
         return term;
     }

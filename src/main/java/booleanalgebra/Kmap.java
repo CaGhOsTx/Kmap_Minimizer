@@ -34,11 +34,12 @@ public final class Kmap {
 
     public String solveFor(String variable, SolutionType solutionType) {
         return variable + " = " + initialiseSolver(solutionType).getSolution().stream()
-                .filter(term -> term.contains(variable))
+                .filter(term -> term.contains(solutionType == PRODUCT_OF_SUMS ? complement(variable) : variable))
                 .map(term -> Arrays.stream(term.split(solutionType.getInnerRegex()))
                         .filter(var -> COLUMN_VARIABLES.stream()
                                 .anyMatch(var::contains))
                         .collect(joining(solutionType.INNER_DELIMITER)))
+                .filter(group -> !group.isEmpty())
                 .map(solutionType::group)
                 .collect(joining(solutionType.OUTER_DELIMITER)) + "\n";
     }

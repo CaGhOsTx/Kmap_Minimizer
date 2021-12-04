@@ -179,10 +179,19 @@ public class KmapBuilder {
     }
 
     static StringBuilder complement(String term) {
+        char c = term.contains("+") ? '+' : '.';
         var sb = new StringBuilder();
-        for (int i = 0; i < term.length(); i++)
-            sb.append(term.charAt(i)).append('\u0305');
-        return sb;
+        var variables = term.split("[.+]");
+        for (var variable : variables) {
+            if(variable.contains("\u0305"))
+                sb.append(variable.replace("\u0305", ""));
+            else {
+                for(char ch : variable.toCharArray())
+                    sb.append(ch).append("\u0305");
+            }
+            sb.append(c);
+        }
+        return sb.deleteCharAt(sb.length() - 1);
     }
 
     private int getIndex(int i, int j) {
