@@ -1,29 +1,22 @@
-import booleanalgebra.Direction;
-import booleanalgebra.Kmap;
 import booleanalgebra.KmapBuilder;
-import booleanalgebra.Options;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
-
-import static booleanalgebra.TermType.DONT_CARE;
+import static booleanalgebra.SolutionType.PRODUCT_OF_SUMS;
+import static booleanalgebra.SolutionType.SUM_OF_PRODUCTS;
 import static booleanalgebra.TermType.MIN_TERM;
 
 
 public class Main {
     public static void main(String[] args) {
-
-        int n = 4;
-        System.out.println(String.join(".", Collections.emptyList()));
-        var f = IntStream.generate(() -> ThreadLocalRandom.current().nextInt(16));
-        Kmap kmap = KmapBuilder.withVariables("A", "B", "sum", "Cin")
-                .andTermsAt(MIN_TERM, 4,5,6)
-                .andTermsAt(DONT_CARE, 0,1,2,3)
+        var halfAdder = KmapBuilder.withVariables("A", "B", "Sum", "Cout")
+                .andGrayCodeTerms(MIN_TERM, "0000", "0110", "1101", "1010")
                 .build();
-        System.out.println(kmap.toString(Options.values()));
-        System.out.println("Solution:");
-        System.out.println(kmap.minimize());
+        var adder = KmapBuilder.withVariables("A", "B", "Cin", "Sum", "Cout")
+                .andGrayCodeTerms(MIN_TERM, "00000", "00110", "01101", "01010", "11001", "11111", "10101", "10010")
+                .build();
+        System.out.println(halfAdder.toString());
+        System.out.println(halfAdder.minimize(SUM_OF_PRODUCTS));
+        System.out.println(halfAdder.solveAll(SUM_OF_PRODUCTS));
+        System.out.println(halfAdder.minimize(PRODUCT_OF_SUMS));
+        System.out.println(halfAdder.solveAll(PRODUCT_OF_SUMS));
     }
 }

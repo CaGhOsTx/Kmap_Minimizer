@@ -1,5 +1,7 @@
 package booleanalgebra;
 
+import java.util.List;
+
 import static booleanalgebra.Options.VALUES;
 
 class KmapFormatter {
@@ -19,7 +21,7 @@ class KmapFormatter {
     private StringBuilder appendVariableList() {
         sb = appendVariables(kmap.ROW_VARIABLES);
         sb.append("\\");
-        sb = appendVariables(kmap.COLUMNS_VARIABLES);
+        sb = appendVariables(kmap.COLUMN_VARIABLES);
         rowPadding = rowPadding();
         columnPadding = setColumnPaddingForGrayCode();
         lengthOfRowAndColumn = lengthOfRowAndColumn();
@@ -27,7 +29,7 @@ class KmapFormatter {
         return sb;
     }
 
-    private StringBuilder appendVariables(String[] columnVariables) {
+    private StringBuilder appendVariables(List<String> columnVariables) {
         for (String s : columnVariables)
             sb.append(s);
         return sb;
@@ -42,7 +44,7 @@ class KmapFormatter {
     }
 
     private String rowPadding() {
-        return " ".repeat(sb.length() - kmap.ROW_GRAY_CODE[0].length());
+        return " ".repeat(sb.length() - kmap.ROW_GRAY_CODE.get(0).length());
     }
 
     private StringBuilder appendBar() {
@@ -53,16 +55,16 @@ class KmapFormatter {
     }
 
     private int lengthOfRowAndColumn() {
-        return kmap.COLUMN_GRAY_CODE[0].length()
-                * kmap.COLUMN_GRAY_CODE.length
-                + delimiter.length() * kmap.COLUMN_GRAY_CODE.length
-                + kmap.COLUMN_GRAY_CODE.length
+        return kmap.COLUMN_GRAY_CODE.get(0).length()
+                * kmap.COLUMN_GRAY_CODE.size()
+                + delimiter.length() * kmap.COLUMN_GRAY_CODE.size()
+                + kmap.COLUMN_GRAY_CODE.size()
                 * (columnPadding[0].length() + columnPadding[1].length())
-                + kmap.ROW_GRAY_CODE[0].length();
+                + kmap.ROW_GRAY_CODE.get(0).length();
     }
 
     private String[] columnPadding() {
-        int length = Math.abs(kmap.COLUMNS_VARIABLES.length
+        int length = Math.abs(kmap.COLUMN_VARIABLES.size()
                 - nodeField.from(kmap.MAP[0][0]).length()
                 + getOverLineCount());
         int left = isOdd(length) ? (length >> 1) + 1 : length >> 1;
@@ -133,16 +135,16 @@ class KmapFormatter {
     }
 
     private StringBuilder appendCurrentRowGrayCode(int i) {
-        return sb.append(rowPadding).append(kmap.ROW_GRAY_CODE[i]).append(delimiter);
+        return sb.append(rowPadding).append(kmap.ROW_GRAY_CODE.get(i)).append(delimiter);
     }
 
     private StringBuilder appendColumnGrayCode() {
         for(String s : kmap.COLUMN_GRAY_CODE)
-            sb.append(center(kmap.COLUMN_GRAY_CODE[0], s)).append(delimiter);
+            sb.append(center(kmap.COLUMN_GRAY_CODE.get(0), s)).append(delimiter);
         return removeLastDelimiter();
     }
 
     private boolean columnGrayCodeIsLongerThanCellData() {
-        return kmap.COLUMNS_VARIABLES.length > nodeField.from(kmap.MAP[0][0]).length();
+        return kmap.COLUMN_VARIABLES.size() > nodeField.from(kmap.MAP[0][0]).length();
     }
 }

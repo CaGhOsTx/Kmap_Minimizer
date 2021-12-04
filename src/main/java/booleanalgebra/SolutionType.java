@@ -1,16 +1,25 @@
 package booleanalgebra;
 
 public enum SolutionType {
-    SUM_OF_PRODUCTS('1'),
-    PRODUCT_OF_SUMS('0');
+    SUM_OF_PRODUCTS('1', ".", " + "),
+    PRODUCT_OF_SUMS('0', "+", ".");
 
-    private char val;
+    final char VALUE;
+    final String INNER_DELIMITER, OUTER_DELIMITER;
 
-    SolutionType(char val) {
-        this.val = val;
+    SolutionType(char VALUE, String INNER_DELIMITER, String OUTER_DELIMITER) {
+        this.VALUE = VALUE;
+        this.INNER_DELIMITER = INNER_DELIMITER;
+        this.OUTER_DELIMITER = OUTER_DELIMITER;
     }
 
-    public char getVal() {
-        return val;
+    String group(String term) {
+        if(this == PRODUCT_OF_SUMS)
+            return "(" + term + ")";
+        return term;
+    }
+
+    String getInnerRegex() {
+        return "\\" + INNER_DELIMITER;
     }
 }

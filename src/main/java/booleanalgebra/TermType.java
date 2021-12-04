@@ -6,15 +6,15 @@ public enum TermType {
     DONT_CARE('x', '0', '.');
 
 
-    final char value, complement, operator;
+    final char VALUE, COMPLEMENT, OPERATOR;
 
-    TermType(char value, char complement, char operator) {
-        this.value = value;
-        this.complement = complement;
-        this.operator = operator;
+    TermType(char VALUE, char COMPLEMENT, char OPERATOR) {
+        this.VALUE = VALUE;
+        this.COMPLEMENT = COMPLEMENT;
+        this.OPERATOR = OPERATOR;
     }
 
     boolean isMIN_TERMS() {
-        return this.equals(MIN_TERM);
+        return this == MIN_TERM;
     }
 }

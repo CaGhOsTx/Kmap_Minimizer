@@ -22,11 +22,6 @@ public class KmapBuilder {
         columnGrayCode = grayCode(columnVariables.length);
     }
 
-    /**
-     * Assigns
-     * @param numberOfVariables
-     * @return
-     */
     public static KmapBuilder withNumberOfVariables(int numberOfVariables) {
         boolean greaterThanAlphabet = numberOfVariables > 26;
         char temp = greaterThanAlphabet ? 'X' : 'A';
@@ -102,12 +97,12 @@ public class KmapBuilder {
                 .toString();
     }
 
-    private String[] getVariablesFromTerm(String term, TermType t) { return term.split("[" + t.operator + "]"); }
+    private String[] getVariablesFromTerm(String term, TermType t) { return term.split("[" + t.OPERATOR + "]"); }
 
     private int grayCodeOf(String term, TermType t) {
         if(t.isMIN_TERMS())
-            return isPositive(term) ? t.value : t.complement;
-        return isPositive(term) ? t.complement : t.value;
+            return isPositive(term) ? t.VALUE : t.COMPLEMENT;
+        return isPositive(term) ? t.COMPLEMENT : t.VALUE;
     }
 
     private boolean isPositive(String term) {
@@ -145,8 +140,8 @@ public class KmapBuilder {
     private Node createNode(int row, int column) {
         int index = getIndex(row, column);
         var termType = determineTermType(index);
-        String term = generateTerm(row, column, termType.operator);
-        Node n = new Node(row, column, index, termType.value, term);
+        String term = generateTerm(row, column, termType.OPERATOR);
+        Node n = new Node(row, column, index, termType.VALUE, term);
         addNodeToAppropriateTermSet(n);
         return n;
     }
@@ -174,16 +169,16 @@ public class KmapBuilder {
     private StringBuilder generatePartialSubstring(int index, String[] grayCode, String[] variables, char operator) {
         var sb = new StringBuilder();
         for (int i = 0; i < grayCode[index].length(); i++)
-            sb.append(isNegative(i, grayCode[index], '0') ? complement(variables[i]) : variables[i])
+            sb.append(isNegative(i, grayCode[index]) ? complement(variables[i]) : variables[i])
                     .append(operator);
         return sb;
     }
 
-    private boolean isNegative(int i, String s, char c) {
-        return s.charAt(i) == c;
+    private boolean isNegative(int i, String s) {
+        return s.charAt(i) == '0';
     }
 
-    private StringBuilder complement(String term) {
+    static StringBuilder complement(String term) {
         var sb = new StringBuilder();
         for (int i = 0; i < term.length(); i++)
             sb.append(term.charAt(i)).append('\u0305');
