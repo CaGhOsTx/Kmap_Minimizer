@@ -39,6 +39,7 @@ public final class Kmap {
                         .filter(var -> COLUMN_VARIABLES.stream()
                                 .anyMatch(var::contains))
                         .collect(joining(solutionType.INNER_DELIMITER)))
+                .map(solutionType::group)
                 .collect(joining(solutionType.OUTER_DELIMITER)) + "\n";
     }
     public String solveAll(SolutionType solutionType) {
