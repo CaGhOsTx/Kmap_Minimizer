@@ -3,23 +3,28 @@ package booleanalgebra;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static booleanalgebra.TermType.*;
+import static booleanalgebra.GrayCode.toDecimal;
+import static booleanalgebra.TermType.MAX_TERM;
+import static booleanalgebra.TermType.MIN_TERM;
+import static booleanalgebra.Variable.toVariables;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toCollection;
 
 public class KmapBuilder {
-    private  final String[] rowVariables, columnVariables, rowGrayCode, columnGrayCode;
+    final List<Variable> rowVariables;
+    final List<Variable> columnVariables;
+    private final GrayCode rowGrayCode, columnGrayCode;
     private final Map<TermType, Set<Integer>> TERMS = new HashMap<>();
     private final Set<Node> minTerms, maxTerms;
 
     private KmapBuilder(String[] rowVariables, String[] columnVariables) {
-        this.rowVariables = rowVariables;
-        this.columnVariables = columnVariables;
+        this.rowVariables = toVariables(rowVariables);
+        this.columnVariables = toVariables(columnVariables);
         minTerms = new HashSet<>();
         maxTerms = new HashSet<>();
-        rowGrayCode = grayCode(rowVariables.length);
-        columnGrayCode = grayCode(columnVariables.length);
+        rowGrayCode = GrayCode.of(rowVariables.length);
+        columnGrayCode = GrayCode.of(columnVariables.length);
     }
 
     public static KmapBuilder withNumberOfVariables(int numberOfVariables) {
@@ -56,7 +61,7 @@ public class KmapBuilder {
 
     public KmapBuilder andTerms(String... terms) {
         var termType = determineTermType(terms);
-        this.TERMS.put(termType, Arrays.stream(terms)
+        TERMS.put(termType, Arrays.stream(terms)
                 .map(term -> getGrayCodeFromTerm(term, termType))
                 .map(this::getGrayCodeIndex)
                 .collect(Collectors.toSet()));
@@ -64,34 +69,23 @@ public class KmapBuilder {
     }
 
     public KmapBuilder andGrayCodeTerms(TermType termType, String... gcTerms) {
-        this.TERMS.put(termType, Arrays.stream(gcTerms)
+        TERMS.put(termType, Arrays.stream(gcTerms)
                 .map(this::getGrayCodeIndex)
                 .collect(Collectors.toSet()));
         return this;
     }
 
     private int getGrayCodeIndex(String grayCode) {
-        String tmpCGC = grayCode.substring(0, columnVariables.length);
+        String tmpCGC = grayCode.substring(0, columnVariables.size());
         String tmpRGC = grayCode.substring(tmpCGC.length());
-        int column = getIndexFromGrayCode(tmpCGC, columnGrayCode);
-        int row = getIndexFromGrayCode(tmpRGC, rowGrayCode);
+        int column = columnGrayCode.getIndex(tmpCGC);
+        int row = rowGrayCode.getIndex(tmpRGC);
         return getIndex(row, column);
-    }
-
-    private int getIndexFromGrayCode(String grayCode, String[] grayCodeArray) {
-        int index = -1;
-        for (int i = 0; i < grayCodeArray.length; i++) {
-            if (grayCodeArray[i].equals(grayCode))
-                index = i;
-        }
-        if(index < 0)
-            throw new IllegalStateException("Invalid input format! Too few, or too many variables");
-        return index;
     }
 
     private String getGrayCodeFromTerm(String term, TermType t) {
         return Arrays.stream(getVariablesFromTerm(term, t))
-                .map(var -> t.isMIN_TERMS() ? var : complement(var).toString())
+                .map(var -> t.isMIN_TERM() ? var : complement(var).toString())
                 .map(var -> grayCodeOf(var, t))
                 .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
                 .toString();
@@ -100,9 +94,9 @@ public class KmapBuilder {
     private String[] getVariablesFromTerm(String term, TermType t) { return term.split("[" + t.OPERATOR + "]"); }
 
     private int grayCodeOf(String term, TermType t) {
-        if(t.isMIN_TERMS())
-            return isPositive(term) ? t.VALUE : t.COMPLEMENT;
-        return isPositive(term) ? t.COMPLEMENT : t.VALUE;
+        if(t.isMIN_TERM())
+            return Integer.parseInt(isPositive(term) ? t.VALUE : t.COMPLEMENT);
+        return Integer.parseInt(isPositive(term) ? t.COMPLEMENT : t.VALUE);
     }
 
     private boolean isPositive(String term) {
@@ -125,11 +119,11 @@ public class KmapBuilder {
     }
 
     private boolean withinRangeOfMap(int i) {
-        return i < 0 || i > (int) Math.pow(2, rowVariables.length + columnVariables.length);
+        return i < 0 || i > (int) Math.pow(2, rowVariables.size() + columnVariables.size());
     }
 
     private Node[][] generateMap() {
-        Node[][] map = new Node[(int) Math.pow(2, rowVariables.length)][(int) Math.pow(2, columnVariables.length)];
+        Node[][] map = new Node[(int) Math.pow(2, rowVariables.size())][(int) Math.pow(2, columnVariables.size())];
         for (int i = 0; i < map.length; i++) {
             for (int j = 0; j < map[i].length; j++)
                 map[i][j] = createNode(i, j);
@@ -140,16 +134,16 @@ public class KmapBuilder {
     private Node createNode(int row, int column) {
         int index = getIndex(row, column);
         var termType = determineTermType(index);
-        String term = generateTerm(row, column, termType.OPERATOR);
-        Node n = new Node(row, column, index, termType.VALUE, term);
+        Term term = generateTerm(row, column, termType);
+        Node n = new Node(row, column, index, term);
         addNodeToAppropriateTermSet(n);
         return n;
     }
 
     private void addNodeToAppropriateTermSet(Node n) {
-        if(n.getValue() == '1')
+        if(n.getTerm().getType().isMIN_TERM())
             minTerms.add(n);
-        else if(n.getValue() == '0')
+        else if(n.getValue().equals("0"))
             maxTerms.add(n);
     }
 
@@ -160,26 +154,22 @@ public class KmapBuilder {
         return TERMS.containsKey(MIN_TERM) ? MAX_TERM : MIN_TERM;
     }
 
-    private String generateTerm(int row, int column, char operator) {
-        var sb = generatePartialSubstring(column, columnGrayCode, columnVariables, operator)
-                .append(generatePartialSubstring(row, rowGrayCode, rowVariables, operator));
-        return sb.substring(0, sb.length() - 1);
+    private Term generateTerm(int row, int column, TermType termType) {
+        return new Term(termType, createTerm(row, column));
     }
 
-    private StringBuilder generatePartialSubstring(int index, String[] grayCode, String[] variables, char operator) {
-        var sb = new StringBuilder();
-        for (int i = 0; i < grayCode[index].length(); i++)
-            sb.append(isNegative(i, grayCode[index]) ? complement(variables[i]) : variables[i])
-                    .append(operator);
-        return sb;
-    }
-
-    private boolean isNegative(int i, String s) {
-        return s.charAt(i) == '0';
+    private HashMap<Variable, Boolean> createTerm(int row, int column) {
+        var bitSet = new LinkedHashMap<Variable, Boolean>(rowVariables.size() + columnVariables.size());
+        String rgc = rowGrayCode.get(row), cgc = columnGrayCode.get(column);
+        for (int i = 0; i < columnVariables.size(); i++)
+            bitSet.put(columnVariables.get(i), cgc.charAt(i) == '1');
+        for (int i = 0; i < rowVariables.size(); i++)
+            bitSet.put(rowVariables.get(i), rgc.charAt(i) == '1');
+        return bitSet;
     }
 
     static StringBuilder complement(String term) {
-        char c = term.contains("+") ? '+' : '.';
+        char delimiter = term.contains("+") ? '+' : '.';
         var sb = new StringBuilder();
         var variables = term.split("[.+]");
         for (var variable : variables) {
@@ -189,40 +179,13 @@ public class KmapBuilder {
                 for(char ch : variable.toCharArray())
                     sb.append(ch).append("\u0305");
             }
-            sb.append(c);
+            sb.append(delimiter);
         }
         return sb.deleteCharAt(sb.length() - 1);
     }
 
     private int getIndex(int i, int j) {
-        return toBinary(rowGrayCode[i], 0) + toBinary(columnGrayCode[j], rowVariables.length);
-    }
-
-    private static int pow2(int val) {
-        if(val > 0)
-            return pow2(--val) << 1;
-        return 1;
-    }
-
-    private static int toBinary(String s, int start) {
-        int res = 0;
-        for (int i = s.length() - 1, binary = pow2(start); i >= 0; i--, binary <<= 1)
-            res += s.charAt(i) == '1' ? binary : 0;
-        return res;
-    }
-
-    private static String[] grayCode(int n) {
-        if(n <= 0)
-            throw new IllegalStateException("n cannot be non-positive");
-        if(n > 1) {
-            String[] arr = grayCode(--n), temp = new String[arr.length << 1];
-            for (int i = 0, j = 0, length = arr.length; i < length; i++, j = j != length - 1 ? j + 1 : 0) {
-                temp[i] = "0" + arr[j];
-                temp[length + i] = "1" + arr[length - j - 1];
-            }
-            return temp;
-        }
-        return new String[] {"0", "1"};
+        return toDecimal(rowGrayCode.get(i), 0) + toDecimal(columnGrayCode.get(j), columnVariables.size());
     }
 
     public Kmap build() {

@@ -2,90 +2,56 @@ package booleanalgebra;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.*;
 
 final class KmapSolver {
     private final SolutionType solutionType;
-    private final Node[][] MAP;
+    private final Kmap KMAP;
     private final int[] BOUNDARIES;
     private Set<Node> terms;
-    private final List<String> solution;
+    private List<Term> solution;
 
     public KmapSolver(Kmap kmap, SolutionType solutionType, Set<Node> terms) {
-        MAP = kmap.MAP;
-        BOUNDARIES = new int[] {MAP.length, MAP[0].length};
+        KMAP = kmap;
+        BOUNDARIES = new int[] {kmap.verticalLength(), kmap.horizontalLength()};
         this.solutionType = solutionType;
         this.terms = terms;
-        var groupStream = getGroups().stream();
-        if(solutionType == SolutionType.PRODUCT_OF_SUMS)
-            groupStream = groupStream.map(q -> q.stream().map(KmapBuilder::complement)
-                            .map(StringBuilder::toString)
-                            .collect(Collectors.toCollection(ArrayDeque::new)));
-        solution = groupStream.map(group -> reduce(solutionType, group))
-                .collect(toList());
     }
 
-    public List<String> getSolution() {
-        return solution;
+    public List<Term> getMinimizedSolution() {
+        if(solution != null)
+            return solution;
+        return solution = getGroups().stream().map(Group::reduce).collect(toList());
     }
 
-    private Deque<Queue<String>> getGroups() {
+    private List<Group> getGroups() {
         Deque<Queue<Node>> groups = new ArrayDeque<>();
-        while (terms.iterator().hasNext()) {
-            groups.add(findMaxGroup(terms.iterator().next()));
+        var iterator = terms.iterator();
+        while (iterator.hasNext()) {
+            groups.add(findMaxGroup(iterator.next()));
             terms = removeGroupedMinTerms(terms, groups);
+            System.out.println(terms.size());
+            iterator = terms.iterator();
         }
-        return mapFromNodeToImplicant(groups);
+        return toGroup(groups);
     }
 
-    private Deque<Queue<String>> mapFromNodeToImplicant(Deque<Queue<Node>> groups) {
-        return groups.stream()
-                .map(q -> q.stream()
-                        .map(Node::getImplicant)
-                        .collect(Collectors.toCollection(ArrayDeque::new)))
-                .collect(Collectors.toCollection(ArrayDeque::new));
+    private List<Group> toGroup(Deque<Queue<Node>> groups) {
+        List<Group> tmp = new ArrayList<>();
+        for(var q : groups) {
+            for(var n : q)
+                if(solutionType == SolutionType.PRODUCT_OF_SUMS)
+                    n.getTerm().complement();
+            tmp.add(Group.of(q.stream().map(Node::getTerm).collect(Collectors.toCollection(ArrayDeque::new))));
+        }
+        return tmp;
     }
 
     private Set<Node> removeGroupedMinTerms(Set<Node> terms, Deque<Queue<Node>> groups) {
         return terms.stream()
                 .filter(node -> !groups.getLast().contains(node))
                 .collect(toSet());
-    }
-
-    private String reduce(SolutionType solutionType, Queue<String> implicants) {
-        if (implicants.size() == 1)
-            return implicants.poll();
-        return String.join(solutionType.INNER_DELIMITER, getResultantExpression(splitIntoVariables(implicants)));
-    }
-
-    private List<String> getResultantExpression(String[][] variables) {
-        var expression = new ArrayList<String>();
-        for (int i = 0; i < variables[0].length; i++) {
-            boolean initialState = variableIsPositive(variables[0][i]), hasChanged = false;
-            for (String[] varRow : variables) {
-                hasChanged = nextVariableIsInverted(varRow[i], initialState);
-                if (hasChanged)
-                    break;
-            }
-            if (!hasChanged)
-                expression.add(variables[0][i]);
-        }
-        return expression;
-    }
-
-    private boolean nextVariableIsInverted(String variable, boolean initialState) {
-        return initialState ^ variableIsPositive(variable);
-    }
-
-    private boolean variableIsPositive(String variable) {
-        return variable.charAt(variable.length() - 1) == '\u0305';
-    }
-
-    private String[][] splitIntoVariables(Queue<String> implicants) {
-        return implicants.stream().map(impl -> impl.split(solutionType.getInnerRegex())).toArray(String[][]::new);
     }
 
     private Queue<Node> findMaxGroup(Node n) {
@@ -95,7 +61,7 @@ final class KmapSolver {
         return groups.poll();
     }
 
-    Deque<Node> trimToPow2(Deque<Node> deque, int lengthOfBase) {
+    private Deque<Node> trimToPow2(Deque<Node> deque, int lengthOfBase) {
         int length = lengthOfBase + deque.size();
         while (!isAPowerOf2(length)) {
             deque.removeLast();
@@ -113,9 +79,10 @@ final class KmapSolver {
 
     private Deque<Node> lookForLargerGroups(Direction original, int limit, int[] RCMatrix, Direction side) {
         Deque<Node> buffer = new ArrayDeque<>();
+        var originalMatrix = new int[] {RCMatrix[0], RCMatrix[1]};
         side.advance(RCMatrix, BOUNDARIES);
         int i = 0;
-        for (var direction = original.opposite(); isNotOverlappingAndValid(RCMatrix, i, direction); direction = direction.opposite()) {
+        for (var direction = original.opposite();isValid(KMAP.MAP[RCMatrix[0]][RCMatrix[1]]) && equals(originalMatrix, RCMatrix); direction = direction.opposite()) {
             var possibleGroup = traverseFrom(RCMatrix, direction, limit);
             if (possibleGroup.size() != limit) break;
             buffer.addAll(possibleGroup);
@@ -124,19 +91,23 @@ final class KmapSolver {
         return trimToPow2(buffer, limit);
     }
 
-    private boolean isNotOverlappingAndValid(int[] RCMatrix, int i, Direction direction) {
-        return i < (direction.isHorizontal() ? MAP[0].length : MAP.length) && isValid(MAP[RCMatrix[0]][RCMatrix[1]]);
+    private static boolean equals(int[] a, int[] b) {
+        if(a.length != b.length)
+            return false;
+        for (int i = 0; i < a.length ; i++)
+            if(a[i] != b[i]) return false;
+        return true;
     }
 
     private Deque<Node> traverseFrom(int[] rcMatrix, Direction direction) {
-        return traverseFrom(rcMatrix, direction, direction.isHorizontal() ? MAP[0].length : MAP.length);
+        return traverseFrom(rcMatrix, direction, direction.isHorizontal() ? BOUNDARIES[1] : BOUNDARIES[0]);
     }
 
     private Deque<Node> traverseFrom(int[] rcMatrix, Direction direction, int limit) {
         Deque<Node> group = new ArrayDeque<>(), buffer = new ArrayDeque<>();
-        for (int i = 0; i < limit && isValid(MAP[rcMatrix[0]][rcMatrix[1]]); i++) {
-            if (MAP[rcMatrix[0]][rcMatrix[1]] == group.peekFirst()) break;
-            buffer.add(MAP[rcMatrix[0]][rcMatrix[1]]);
+        for (int i = 0; i < limit && isValid(KMAP.MAP[rcMatrix[0]][rcMatrix[1]]); i++) {
+            if (KMAP.MAP[rcMatrix[0]][rcMatrix[1]] == group.peekFirst()) break;
+            buffer.add(KMAP.MAP[rcMatrix[0]][rcMatrix[1]]);
             if (isAPowerOf2(buffer.size() + group.size()))
                 unloadBuffer(group, buffer);
             direction.advance(rcMatrix, BOUNDARIES);
@@ -145,7 +116,7 @@ final class KmapSolver {
     }
 
     private boolean isValid(Node node) {
-        return node.getValue() == solutionType.VALUE || node.getValue() == 'x';
+        return node.getValue().equals(solutionType.VALUE) || node.getValue().equals("x");
     }
 
     private void unloadBuffer(Queue<Node> max, Queue<Node> buffer) {

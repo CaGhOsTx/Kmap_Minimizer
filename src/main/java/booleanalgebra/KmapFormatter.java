@@ -29,9 +29,9 @@ class KmapFormatter {
         return sb;
     }
 
-    private StringBuilder appendVariables(List<String> columnVariables) {
-        for (String s : columnVariables)
-            sb.append(s);
+    private StringBuilder appendVariables(List<Variable> columnVariables) {
+        for (var v : columnVariables)
+            sb.append(v.toString());
         return sb;
     }
 
@@ -91,7 +91,7 @@ class KmapFormatter {
         if(isNotANumber(s.charAt(0)))
             return columnPadding[0] + s + columnPadding[1];
         int offset = columnPadding[0].length() - (s.length() - reference.length());
-        return " ".repeat(offset) + s + columnPadding[1];
+        return " ".repeat(Math.max(0, offset)) + s + columnPadding[1];
     }
 
     private boolean isNotANumber(char c) {

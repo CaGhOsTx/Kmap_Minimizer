@@ -3,7 +3,7 @@ package booleanalgebra;
 import java.util.function.Function;
 
 public enum Options {
-    TERMS(Node::getImplicant),
+    TERMS(node -> node.getTerm().toString()),
     VALUES(node -> String.valueOf(node.getValue())),
     INDEXES(node -> String.valueOf(node.getIndex()));
 

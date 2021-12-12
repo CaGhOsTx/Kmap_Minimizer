@@ -3,14 +3,12 @@ package booleanalgebra;
 import java.util.Objects;
 
 final class Node {
-    private final String implicant;
+    private final Term term;
     private final int index, row, column;
-    private final char value;
 
-    Node(int row, int column, int index, char value, String implicant) {
+    Node(int row, int column, int index, Term term) {
         this.index = index;
-        this.value = value;
-        this.implicant = implicant;
+        this.term = term;
         this.row = row;
         this.column = column;
     }
@@ -21,10 +19,9 @@ final class Node {
         if (o instanceof Node) {
             Node node = (Node) o;
             return index == node.index
-                    && value == node.value
                     && row == node.row
                     && column == node.column
-                    && implicant.equals(node.implicant);
+                    && term.equals(node.term);
         }
         return false;
     }
@@ -36,23 +33,19 @@ final class Node {
 
     @Override
     public int hashCode() {
-        return Objects.hash(implicant, index, value, row, column);
+        return Objects.hash(term, index, row, column);
     }
 
-    int getRow() {return row;}
-
-    int getColumn() {return column;}
-
-    String getImplicant() {
-        return implicant;
+    Term getTerm() {
+        return term;
     }
 
     int getIndex() {
         return index;
     }
 
-    char getValue() {
-        return value;
+    String getValue() {
+        return term.getType().VALUE;
     }
 
     int[] getRCMatrix() {
